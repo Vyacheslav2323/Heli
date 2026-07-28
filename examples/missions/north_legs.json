@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "north-legs",
+  "description": "takeoff → north +200m (relative) → hold 10s → turn 90° → north +200m (relative)",
+  "abort_policy": "rtl",
+  "constraints": {
+    "max_alt_m": 30,
+    "min_alt_m": 0.5
+  },
+  "goals": [
+    { "type": "takeoff", "alt_m": 3 },
+    { "type": "goto_ned", "dx": 200, "dy": 0, "z": -3, "acceptance_radius_m": 2 },
+    { "type": "hold", "duration_s": 10 },
+    { "type": "yaw_to", "yaw_deg": 90, "relative": true },
+    { "type": "goto_ned", "dx": 200, "dy": 0, "z": -3, "acceptance_radius_m": 2 }
+  ]
+}

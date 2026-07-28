@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "helicopter"
+version = "0.1.0"
+description = "Autonomous helicopter platform — modular controls, vision, audio, databases"
+readme = "NORTH_STAR.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pymavlink>=2.4.41",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "jsonschema>=4.22",
+]
+controls = []
+vision = []
+audio = [
+  "RealtimeSTT[faster-whisper]",
+  "silero-vad",
+]
+
+[tool.setuptools]
+packages = [
+  "flight",
+  "flight.px4",
+  "mission",
+  "reasoning",
+  "perception",
+  "audio",
+  "databases",
+  "databases.graph",
+]
+
+[tool.setuptools.package-dir]
+flight = "controls/flight"
+"flight.px4" = "controls/flight/px4"
+mission = "controls/mission"
+reasoning = "controls/reasoning"
+perception = "vision/perception"
+audio = "audio"
+databases = "databases"
+"databases.graph" = "databases/graph"
+
+[tool.pytest.ini_options]
+pythonpath = ["controls", "vision", "."]
+testpaths = ["tests"]

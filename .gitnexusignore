@@ -1,0 +1,30 @@
+# Vendored simulators and third-party trees (slow C++ parsing, not core project code)
+controls/heli-gym/
+vision/depth-anything-3/
+audio/RealtimeSTT/
+vision/third_party/
+
+# Data, weights, logs
+data/
+*.pt
+*.pth
+*.onnx
+*.log
+
+# Python/env artifacts
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# IDE / tooling
+.vs/
+.cursor/
+
+# Local GLB viewer deps / assets (keep vision/tools/glb-viewer/src indexed)
+vision/tools/glb-viewer/node_modules/
+vision/tools/glb-viewer/public/
+vision/tools/glb-viewer/dist/
+tools/glb-viewer/node_modules/
+tools/glb-viewer/public/
+tools/glb-viewer/dist/

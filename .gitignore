@@ -1,0 +1,52 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / local
+.vs/
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / weights / binaries
+*.log
+*.pt
+*.pth
+*.onnx
+*.exe
+
+# Node
+node_modules/
+dist/
+.expo/
+
+# GitNexus local index (regenerate with: node .gitnexus/run.cjs analyze --skip-git)
+.gitnexus/
+
+# Data / runtime outputs
+data/**
+!data/.gitkeep
+
+# Vendor local noise
+**/imgui.ini

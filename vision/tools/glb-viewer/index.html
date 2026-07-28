@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GLB Viewer — scene.glb</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; }
+      #renderCanvas { width: 100%; height: 100%; display: block; outline: none; }
+      #status {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        color: #ccc;
+        font: 13px/1.4 system-ui, sans-serif;
+        background: rgba(0, 0, 0, 0.55);
+        padding: 8px 12px;
+        border-radius: 6px;
+        pointer-events: none;
+        z-index: 1;
+      }
+      #gizmoToggle {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #ccc;
+        font: 13px/1 system-ui, sans-serif;
+        background: rgba(0, 0, 0, 0.55);
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        cursor: pointer;
+        user-select: none;
+      }
+      #gizmoToggle:hover {
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+      }
+      #gizmoToggle input {
+        accent-color: #3b7af2;
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status">Loading scene.glb…</div>
+    <label id="gizmoToggle">
+      <input type="checkbox" id="gizmoCheckbox" checked />
+      Gizmo
+    </label>
+    <canvas id="renderCanvas"></canvas>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helicopter.local/controls/schemas/mission_spec.schema.json",
+  "title": "MissionSpec",
+  "description": "Structured mission intent. Planner expands this into abstract flight commands; validator gates execution.",
+  "type": "object",
+  "required": ["version", "name", "goals"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "home": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "alt_m": { "type": "number" }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_alt_m": { "type": "number", "exclusiveMinimum": 0 },
+        "min_alt_m": { "type": "number" },
+        "max_horizontal_speed_m_s": { "type": "number", "exclusiveMinimum": 0 },
+        "geofence": {
+          "type": "object",
+          "required": ["polygon"],
+          "additionalProperties": false,
+          "properties": {
+            "polygon": {
+              "type": "array",
+              "minItems": 3,
+              "items": {
+                "type": "object",
+                "required": ["lat", "lon"],
+                "additionalProperties": false,
+                "properties": {
+                  "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+                  "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+                }
+              }
+            }
+          }
+        },
+        "min_battery_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "abort_policy": {
+      "type": "string",
+      "enum": ["rtl", "land"],
+      "default": "rtl"
+    },
+    "goals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "alt_m"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "takeoff" },
+              "alt_m": { "type": "number", "exclusiveMinimum": 0 },
+              "yaw_deg": { "type": ["number", "null"] }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "x", "y", "z"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "goto_ned" },
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "z": { "type": "number" },
+              "yaw_deg": { "type": ["number", "null"] },
+              "acceptance_radius_m": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "goto_ned" },
+              "dx": { "type": "number" },
+              "dy": { "type": "number" },
+              "dz": { "type": "number" },
+              "z": { "type": "number" },
+              "yaw_deg": { "type": ["number", "null"] },
+              "acceptance_radius_m": { "type": "number", "exclusiveMinimum": 0 }
+            },
+            "anyOf": [
+              { "required": ["dx"] },
+              { "required": ["dy"] },
+              { "required": ["dz"] }
+            ]
+          },
+          {
+            "type": "object",
+            "required": ["type", "lat", "lon", "alt_m"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "goto_global" },
+              "lat": { "type": "number" },
+              "lon": { "type": "number" },
+              "alt_m": { "type": "number" },
+              "yaw_deg": { "type": ["number", "null"] },
+              "acceptance_radius_m": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "yaw_deg"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "yaw_to" },
+              "yaw_deg": { "type": "number" },
+              "rate_deg_s": { "type": ["number", "null"] },
+              "relative": { "type": "boolean" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "hold" },
+              "duration_s": { "type": "number", "minimum": 0 }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "land" },
+              "lat": { "type": ["number", "null"] },
+              "lon": { "type": ["number", "null"] },
+              "yaw_deg": { "type": ["number", "null"] }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "rtl" }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

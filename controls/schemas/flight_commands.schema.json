@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helicopter.local/controls/schemas/flight_commands.schema.json",
+  "title": "AbstractFlightCommand",
+  "description": "Deterministic flight commands emitted by mission/planner and consumed by flight/adapter.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "arm" },
+        "force": { "type": "boolean", "default": false }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "disarm" },
+        "force": { "type": "boolean", "default": false }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "alt_m"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "takeoff" },
+        "alt_m": { "type": "number", "exclusiveMinimum": 0 },
+        "yaw_deg": { "type": ["number", "null"], "minimum": 0, "maximum": 360 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "land" },
+        "lat": { "type": ["number", "null"] },
+        "lon": { "type": ["number", "null"] },
+        "yaw_deg": { "type": ["number", "null"], "minimum": 0, "maximum": 360 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "hold" },
+        "duration_s": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "x", "y", "z"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "goto_ned" },
+        "x": { "type": "number", "description": "North (m), local NED absolute" },
+        "y": { "type": "number", "description": "East (m), local NED absolute" },
+        "z": { "type": "number", "description": "Down (m), local NED; negative is up" },
+        "yaw_deg": { "type": ["number", "null"], "minimum": 0, "maximum": 360 },
+        "acceptance_radius_m": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "goto_ned" },
+        "dx": { "type": "number", "description": "Relative north delta (m) from current position" },
+        "dy": { "type": "number", "description": "Relative east delta (m) from current position" },
+        "dz": { "type": "number", "description": "Relative down delta (m)" },
+        "z": { "type": "number", "description": "Optional absolute cruise altitude (NED down)" },
+        "yaw_deg": { "type": ["number", "null"], "minimum": 0, "maximum": 360 },
+        "acceptance_radius_m": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 }
+      },
+      "anyOf": [
+        { "required": ["dx"] },
+        { "required": ["dy"] },
+        { "required": ["dz"] }
+      ]
+    },    {
+      "type": "object",
+      "required": ["type", "lat", "lon", "alt_m"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "goto_global" },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "alt_m": { "type": "number", "description": "Altitude AMSL (m)" },
+        "yaw_deg": { "type": ["number", "null"], "minimum": 0, "maximum": 360 },
+        "acceptance_radius_m": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "yaw_deg"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "yaw_to" },
+        "yaw_deg": { "type": "number", "minimum": 0, "maximum": 360 },
+        "rate_deg_s": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "relative": { "type": "boolean", "default": false },
+        "tolerance_deg": { "type": "number", "exclusiveMinimum": 0, "default": 5.0 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "loiter" },
+        "duration_s": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "rtl" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "abort" },
+        "policy": { "type": "string", "enum": ["rtl", "land"], "default": "rtl" }
+      }
+    }
+  ]
+}
