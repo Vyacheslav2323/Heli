@@ -135,3 +135,4 @@ text input ─────────────┴─► reasoning/intent (De
                                                 ▼
                                         digital twin ──► (read-only) reasoning & planner context
 ```
+

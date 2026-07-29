@@ -17,6 +17,7 @@ from PIL import Image
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
 logger = logging.getLogger("perception.frame_detector")
+CLICK_PROMPT_SENTINEL = "__click__."
 
 
 @dataclass
@@ -80,6 +81,7 @@ class FramePromptTracker:
         self._last_frame_s = 0.0
         self._locked_bbox: list[float] | None = None
         self._detect_busy = False
+        self._command_epoch = 0
         self._device = self._preferred_device()
         self._processor = None
         self._detector = None
@@ -97,9 +99,11 @@ class FramePromptTracker:
             return self._set_state(active=False, status="empty prompt", prompt="")
         mode = "single" if selected_index is not None else "all"
         with self._lock:
+            self._command_epoch += 1
             self._clear_flow_locked()
             self._locked_bbox = None
             self._last_detect_s = 0.0
+            self._detect_busy = False
         label = (
             f'armed "{normalized}" #{selected_index} (waiting for frame)'
             if selected_index is not None
@@ -121,6 +125,35 @@ class FramePromptTracker:
             last_error=None,
         )
 
+    def start_from_bbox(
+        self,
+        bbox_xyxy: list[float] | tuple[float, float, float, float],
+        *,
+        label: str = "selection",
+    ) -> TrackingState:
+        x0, y0, x1, y1 = [float(v) for v in bbox_xyxy]
+        if x1 <= x0 or y1 <= y0:
+            raise ValueError("bbox must be [x0,y0,x1,y1] with positive area")
+        target = TrackedTarget(index=1, bbox=[x0, y0, x1, y1], score=1.0)
+        with self._lock:
+            self._command_epoch += 1
+            self._clear_flow_locked()
+            self._locked_bbox = list(target.bbox)
+            self._last_detect_s = 0.0
+            self._detect_busy = False
+        return self._set_state(
+            active=True,
+            status=f'tracking "{label}"',
+            prompt=CLICK_PROMPT_SENTINEL,
+            bbox=list(target.bbox),
+            targets=[target],
+            selected_index=1,
+            mode="single",
+            score=1.0,
+            updated_at_s=time.time(),
+            last_error=None,
+        )
+
     def select_index(self, index: int) -> TrackingState:
         """Switch to a specific detection index from the current class."""
         if index < 1:
@@ -131,9 +164,11 @@ class FramePromptTracker:
         with self._lock:
             prompt = self._state.prompt
             targets = list(self._state.targets)
+            self._command_epoch += 1
             self._clear_flow_locked()
             self._locked_bbox = None
             self._last_detect_s = 0.0
+            self._detect_busy = False
         if not prompt:
             return self._set_state(
                 active=False,
@@ -162,9 +197,11 @@ class FramePromptTracker:
     def track_all(self) -> TrackingState:
         with self._lock:
             prompt = self._state.prompt
+            self._command_epoch += 1
             self._clear_flow_locked()
             self._locked_bbox = None
             self._last_detect_s = 0.0
+            self._detect_busy = False
         if not prompt:
             return self._set_state(
                 active=False,
@@ -184,10 +221,12 @@ class FramePromptTracker:
 
     def stop_tracking(self) -> TrackingState:
         with self._lock:
+            self._command_epoch += 1
             self._clear_flow_locked()
             self._locked_bbox = None
             self._last_detect_s = 0.0
             self._last_frame_s = 0.0
+            self._detect_busy = False
         return self._set_state(
             active=False,
             status="stopped",
@@ -256,6 +295,7 @@ class FramePromptTracker:
         """Fast path: OpenCV / last boxes every call. DINO redetect runs async."""
         normalized = _normalize_prompt(prompt or "")
         with self._lock:
+            epoch = self._command_epoch
             if normalized:
                 self._state.prompt = normalized
             current_prompt = self._state.prompt
@@ -285,10 +325,20 @@ class FramePromptTracker:
             dt = max(1e-3, now - prev_frame_s)
             fps = 1.0 / dt
 
+        # If a newer chat/click command landed, abort this stale frame.
+        with self._lock:
+            if epoch != self._command_epoch:
+                return _coerce_state(self._state.to_dict())
+
         # Fast LK optical flow follow (MIL is too slow for multi-target).
         followed = self._update_flow(frame_bgr)
+        with self._lock:
+            if epoch != self._command_epoch:
+                return _coerce_state(self._state.to_dict())
         if not followed and has_targets:
             with self._lock:
+                if epoch != self._command_epoch:
+                    return _coerce_state(self._state.to_dict())
                 seed = list(self._state.targets)
             if mode == "single" and selected_index is not None:
                 seed = [t for t in seed if t.index == selected_index] or seed
@@ -297,42 +347,54 @@ class FramePromptTracker:
 
         if followed:
             with self._lock:
+                if epoch != self._command_epoch:
+                    return _coerce_state(self._state.to_dict())
                 self._state.targets = followed
                 if mode == "single" and selected_index is not None:
                     hit = next((t for t in followed if t.index == selected_index), None)
                     if hit is not None:
                         self._locked_bbox = list(hit.bbox)
 
-        need_detect = (not has_targets) or (not followed) or detect_due
+        is_click_mode = current_prompt == CLICK_PROMPT_SENTINEL
+        need_detect = (not is_click_mode) and ((not has_targets) or (not followed) or detect_due)
         if need_detect and not detect_busy:
             frame_copy = frame_bgr.copy()
             with self._lock:
+                if epoch != self._command_epoch:
+                    return _coerce_state(self._state.to_dict())
                 self._detect_busy = True
                 self._last_detect_s = time.time()
             threading.Thread(
                 target=self._redetect_worker,
-                args=(frame_copy, current_prompt, mode, selected_index, locked),
+                args=(frame_copy, current_prompt, mode, selected_index, locked, epoch),
                 daemon=True,
             ).start()
 
         with self._lock:
+            if epoch != self._command_epoch:
+                return _coerce_state(self._state.to_dict())
             targets = list(self._state.targets)
             locked_now = list(self._locked_bbox) if self._locked_bbox else None
             selected_index = self._state.selected_index
             mode = self._state.mode
+            # Always prefer the live prompt — never clobber a newer command.
+            live_prompt = self._state.prompt
 
         if mode == "single" and selected_index is not None:
             hit = next((t for t in targets if t.index == selected_index), None)
             bbox = list(hit.bbox) if hit else locked_now
             active = bbox is not None
+            status_prompt = (
+                "selection" if live_prompt == CLICK_PROMPT_SENTINEL else live_prompt
+            )
             return self._set_state(
                 active=active,
                 status=(
-                    f'tracking "{current_prompt}" #{selected_index}'
+                    f'tracking "{status_prompt}" #{selected_index}'
                     if active
-                    else f'armed "{current_prompt}" #{selected_index} (waiting for frame)'
+                    else f'armed "{status_prompt}" #{selected_index} (waiting for frame)'
                 ),
-                prompt=current_prompt,
+                prompt=live_prompt,
                 bbox=bbox,
                 targets=targets,
                 selected_index=selected_index,
@@ -348,11 +410,11 @@ class FramePromptTracker:
         return self._set_state(
             active=active,
             status=(
-                f'tracking {len(targets)} "{current_prompt}"'
+                f'tracking {len(targets)} "{live_prompt}"'
                 if active
-                else f'armed "{current_prompt}" all (waiting for frame)'
+                else f'armed "{live_prompt}" all (waiting for frame)'
             ),
-            prompt=current_prompt,
+            prompt=live_prompt,
             bbox=list(targets[0].bbox) if targets else None,
             targets=targets,
             selected_index=None,
@@ -372,13 +434,22 @@ class FramePromptTracker:
         mode: str,
         selected_index: int | None,
         locked: list[float] | None,
+        epoch: int,
     ) -> None:
         try:
+            with self._lock:
+                if epoch != self._command_epoch:
+                    return
             detections = self._detect_all(frame_bgr, prompt)
             targets = _index_detections(detections)
             fh, fw = frame_bgr.shape[:2]
+            with self._lock:
+                if epoch != self._command_epoch or self._state.prompt != prompt:
+                    return
             if not targets:
                 with self._lock:
+                    if epoch != self._command_epoch:
+                        return
                     self._clear_flow_locked()
                     self._locked_bbox = None
                 self._set_state(
@@ -396,6 +467,9 @@ class FramePromptTracker:
                 return
 
             if mode == "all" or selected_index is None:
+                with self._lock:
+                    if epoch != self._command_epoch or self._state.prompt != prompt:
+                        return
                 self._init_flow(frame_bgr, targets)
                 self._set_state(
                     active=True,
@@ -414,6 +488,9 @@ class FramePromptTracker:
                 return
 
             chosen = _pick_sticky_target(targets, selected_index, locked)
+            with self._lock:
+                if epoch != self._command_epoch or self._state.prompt != prompt:
+                    return
             if chosen is None:
                 with self._lock:
                     self._clear_flow_locked()
@@ -437,6 +514,8 @@ class FramePromptTracker:
             # Flow-track all detections; selected index is highlighted by mode.
             self._init_flow(frame_bgr, targets)
             with self._lock:
+                if epoch != self._command_epoch or self._state.prompt != prompt:
+                    return
                 self._locked_bbox = list(chosen.bbox)
             self._set_state(
                 active=True,
@@ -454,13 +533,17 @@ class FramePromptTracker:
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("Async redetect failed")
+            with self._lock:
+                if epoch != self._command_epoch:
+                    return
             self._set_state(
                 last_error=str(exc),
                 updated_at_s=time.time(),
             )
         finally:
             with self._lock:
-                self._detect_busy = False
+                if epoch == self._command_epoch:
+                    self._detect_busy = False
 
     def _clear_flow_locked(self) -> None:
         self._flow_prev_gray = None
@@ -756,7 +839,12 @@ def parse_track_command(user_text: str) -> dict[str, Any] | None:
             return {"action": "start", "prompt": singular, "selected_index": None}
         return {"action": "start", "prompt": prompt, "selected_index": None}
 
-    return None
+    # Bare object phrase from chat/voice: "keyboard", "red mug", etc.
+    if text in {"stop", "cancel"}:
+        return {"action": "stop"}
+    if text in {"status"}:
+        return {"action": "status"}
+    return {"action": "start", "prompt": text, "selected_index": None}
 
 
 def _index_detections(
