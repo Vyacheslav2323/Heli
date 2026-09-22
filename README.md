@@ -4,9 +4,6 @@
 
 Voice or text becomes a typed mission. A deterministic safety gate decides whether it may fly. A thin adapter talks to PX4. Perception and 3D reconstruction run on recorded video, so the system can be developed without flying.
 
-This is not a finished aircraft. It is the software architecture and the parts that run today.
-
-![Thin Client Composer — reconstructed cubicle in Babylon.js, health strip, chat dock](docs/slides/02-thin-client.png)
 
 ## Pipeline
 
@@ -82,10 +79,7 @@ Mission confirm and SITL fly-out are not in this UI yet. That is the next wire-u
 
 See first. Fly later. Source video is a real desk / cubicle pass — the same workspace the reconstruction was built from.
 
-| Input frames | 3D result in the viewer |
-|---|---|
-| ![Desk pass with RC transmitter](docs/slides/04-source-desk.jpg) | ![GLB reconstruction with orbit gizmo](docs/slides/01-glb-viewer.png) |
-| ![Cubicle partition and mug](docs/slides/05-source-cubicle.jpg) | ![Same scene, orbited](docs/slides/03-glb-orbit.png) |
+![Desk pass with RC transmitter](docs/slides/04-source-desk.jpg) 
 
 ```mermaid
 flowchart LR
