@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "helicopter"
 version = "0.1.0"
 description = "Autonomous helicopter platform — modular controls, vision, audio, databases"
-readme = "NORTH_STAR.md"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "pymavlink>=2.4.41",
